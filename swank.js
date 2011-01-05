@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 var net = require("net"), http = require('http'), io = require('socket.io'), util = require("util"),
-    url = require('url'), fs = require('fs');
+    url = require('url'), fs = require('fs'), path = require('path');
 var swh = require("./swank-handler");
 var swp = require("./swank-protocol");
 var ua = require("./user-agent");
@@ -200,12 +200,47 @@ HttpListener.prototype.injectScripts = function injectScripts (buffer, url) {
 };
 
 HttpListener.prototype.proxyRequest = function proxyRequest (request, response) {
-  var self = this;
-  this.config.get(
-    "targetUrl",
-    function (targetUrl) {
-      self.doProxyRequest(targetUrl, request, response);
-    });
+    var self = this;
+    self.config.get("targetUrl", 
+		    function (targetUrl) {
+			if (targetUrl) {
+			    self.doProxyRequest(targetUrl, request, response);
+			    return;
+			}
+			self.config.get("targetFilename", function (targetFilename) {
+					       if (targetFilename) {
+						   self.doProxyFileRequest(targetFilename, request, response);
+						   return;
+					       }
+					   });
+		    });
+}
+
+HttpListener.prototype.doProxyFileRequest = function (targetFilename, request, response) {
+    var self = this;
+    targetFilename = path.normalize(targetFilename);
+    var ourPath = path.normalize(path.join(targetFilename, request.url));
+    if (ourPath.indexOf(targetFilename) !== 0) {
+	console.log(targetFilename + "is not part of " + ourPath); 
+	response.writeHead(503);
+	response.end("File is outside of domain.");
+	return;
+    }
+    
+    fs.readFile(ourPath, function (err, data) {
+		    if(err) {
+			console.log("error given was: " + err);
+			response.writeHead(503);
+			response.end("File does not appear to exist or be readable.");
+			return;
+		    }
+		    var contentType = self.types[path.extname(ourPath).slice(1)] || "application/octet-stream";
+		    response.writeHead(200, {
+					   "Content-Length": data.length,
+					   "Content-Type": contentType
+				       });
+		    response.end(data, contentType.indexOf("application/") !== 0);
+		});
 };
 
 HttpListener.prototype.doProxyRequest = function doProxyRequest (targetUrl, request, response) {

@@ -397,15 +397,21 @@ Executive.prototype.selectRemote = function selectRemote (index, sticky, auto) {
 };
 
 Executive.prototype.setTargetUrl = function setTargetUrl (targetUrl) {
-  var parsedUrl = null;
+    var parsedUrl = null;
+    console.log("TargetUrl is: " + targetUrl);
   try {
-    parsedUrl = url.parse(targetUrl);
-  } catch (e) {}
-  if (parsedUrl && parsedUrl.hostname)
-    this.config.set("targetUrl", targetUrl);
-  else
-    this.emit("output", "WARNING: the URL must contain host and port\n");
-};
+      parsedUrl = url.parse(targetUrl);
+      console.log("Parsed url is: " + parsedUrl);
+  } catch (e) {
+  }
+  if (parsedUrl && parsedUrl.hostname) {
+      this.config.set("targetUrl", targetUrl);
+      this.config.set("targetFilename", null);
+  } else {
+      this.config.set("targetFilename", targetUrl);
+      this.config.set("targetUrl", null);
+  }      
+}; 
 
 Executive.prototype.setSlimeVersion = function setSlimeVersion (slimeVersion) {
   this.config.set("slimeVersion", slimeVersion);
